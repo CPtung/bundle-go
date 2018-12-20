@@ -1,28 +1,31 @@
-package sample
+package directcmd
 
 import (
     "net/http"
     "github.com/MOXA-ISD/micore/pkg"
 )
 
-func (self *Sample)GetValue(request micore.RequestData) (int, interface{}){
+func (self *DirectCmd)GetValue(request micore.RequestData) (int, interface{}){
     return http.StatusOK, micore.H{}
 }
 
-var configPath string = "/var/sample/sample.json"
+var configPath string = "/var/tagservice/conf.d/directcmd/directcmd.json"
 
-type Sample struct {
+type DirectCmd struct {
     micore.CoreRoute
 }
 
-func (self *Sample) Index() {
+func (self *DirectCmd) Index() {
     // setup the mapping from route to result handler
     self.GenEndpointHandler()
     self.SetEndpointHandler(micore.CRUD_GET, "sample/:name", self.GetValue)
 }
 
-func New() *Sample {
-    self := Sample{}
+func (self *DirectCmd) Stop() {
+}
+
+func New() *DirectCmd {
+    self := DirectCmd{}
     // Init Config
     self.Load(configPath)
     // Return Instance

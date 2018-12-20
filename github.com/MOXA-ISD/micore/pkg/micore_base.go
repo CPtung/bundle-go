@@ -7,4 +7,5 @@ import (
 type CoreBase interface {
     SetRouteGroup(routeGroup *gin.RouterGroup)
     Index()
+    Stop()
 }

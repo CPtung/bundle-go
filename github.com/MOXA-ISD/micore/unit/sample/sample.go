@@ -1,7 +1,9 @@
 package sample
 
 import (
+    "log"
     "net/http"
+
     "github.com/MOXA-ISD/micore/pkg"
 )
 
@@ -21,10 +23,14 @@ func (self *Sample) Index() {
     self.SetEndpointHandler(micore.CRUD_GET, "sample/:name", self.GetValue)
 }
 
+func (self *Sample) Stop() {
+    log.Println("Sample Stop")
+}
+
 func New() *Sample {
-    self := Sample{}
+    self := &Sample{}
     // Init Config
     self.Load(configPath)
     // Return Instance
-    return &self
+    return self
 }

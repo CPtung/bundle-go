@@ -5,12 +5,12 @@ SRC=main/main.go
 run:
 	$(GOR) $(SRC)
 
-build: sample
+build: tagservice
 
-sample:
+tagservice:
 	$(GOB) -o $@ $(SRC)
 
 clean:
-	rm -rf sample
+	rm -rf tagservice
 
 .PHONY= build run clean

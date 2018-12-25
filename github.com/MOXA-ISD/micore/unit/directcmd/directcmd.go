@@ -6,7 +6,7 @@ import (
 )
 
 func (self *DirectCmd)GetValue(request micore.RequestData) (int, interface{}){
-    return http.StatusOK, micore.H{}
+    return http.StatusOK, micore.RespBody()
 }
 
 var configPath string = "/var/tagservice/conf.d/directcmd/directcmd.json"

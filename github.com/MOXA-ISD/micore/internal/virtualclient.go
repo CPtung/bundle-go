@@ -27,12 +27,12 @@ func NewVirtualClient(rootPath string) *VirtualClient{
 func (self *VirtualClient) UpdateTag(data []byte) (int, interface{}) {
     var config TagList
     if err := json.Unmarshal(self.GetAll(), &config); err != nil {
-        return http.StatusBadRequest, micore.H{"error": "cannot load config"}
+        return http.StatusBadRequest, micore.RespErr("cannot load config")
     }
 
     var tag Tag
     if err := json.Unmarshal(data, &tag); err != nil {
-        return http.StatusBadRequest, micore.H{"error": "unknown tag format"}
+        return http.StatusBadRequest, micore.RespErr("unknown tag format")
     }
 
     for i := range config.TAGLIST {
@@ -56,12 +56,12 @@ func (self *VirtualClient) UpdateTag(data []byte) (int, interface{}) {
 func (self *VirtualClient) DeleteTag(data []byte) (int, interface{}) {
     var config TagList
     if err := json.Unmarshal(self.GetAll(), &config); err != nil {
-        return http.StatusBadRequest, micore.H{"error": "cannot load config"}
+        return http.StatusBadRequest, micore.RespErr("cannot load config")
     }
 
     var tag Tag
     if err := json.Unmarshal(data, &tag); err != nil {
-        return http.StatusBadRequest, micore.H{"error": "unknown tag format"}
+        return http.StatusBadRequest, micore.RespErr("unknown tag format")
     }
 
     for i := range config.TAGLIST {
@@ -75,7 +75,7 @@ func (self *VirtualClient) DeleteTag(data []byte) (int, interface{}) {
         }
     }
 
-    return http.StatusBadRequest, micore.H{"error": "tag not found"}
+    return http.StatusBadRequest, micore.RespErr("tag not found")
 }
 
 func (self *VirtualClient) GetList() (int, interface{}) {

@@ -4,6 +4,9 @@ import (
     "os"
     "fmt"
     "log"
+    "errors"
+    "strings"
+    "reflect"
     "net/http"
     "encoding/json"
 
@@ -42,9 +45,9 @@ type FieldbusClient struct {
 
 func ContainOf(item interface{}, slice interface{}) (error, bool) {
     list := reflect.ValueOf(slice)
-    switch reflect.TypeOf(list).Kind()a {
+    switch reflect.TypeOf(list).Kind() {
         case reflect.Array, reflect.Slice:
-            for idx := 0; idx < list.Len(); ++idx {
+            for idx := 0; idx < list.Len(); idx++ {
                 if list.Index(idx).Interface() == item {
                     return nil, true
                 }
@@ -94,7 +97,7 @@ func (self *FieldbusClient) WritePayload(data []byte) {
 func (self *FieldbusClient) GetProtocols() (int, interface{}) {
     var config FieldbusConfig
     if err := json.Unmarshal(self.protocolMgmt.GetAll(), &config); err != nil {
-    return http.StatusBadRequest, micore.H{"message": "failed to get protocol list"}
+        return http.StatusBadRequest, micore.RespErr("failed to get protocol list")
     }
     return http.StatusOK, config.PROTOCOLLIST
 }
@@ -117,12 +120,12 @@ func (self *FieldbusClient) Invoke(action string, protocol string) (int, interfa
     hostName := self.GetHostName(protocol)
     if hostName == nil {
         log.Printf("warning: protocol(%v) is not in the supporting list\n", protocol)
-        return http.StatusBadRequest, micore.H{"warning": "protocol is not int the supporting list"}
+        return http.StatusBadRequest, micore.RespErr("protocol is not int the supporting list")
     }
     cmd := fmt.Sprintf("%v --host %v %v", "fbctlcli", hostName, action)
     //log.Println(cmd)
     status, output := micore.Exec(cmd)
-    var response micore.H
+    var response micore.Resp
     if status == 200 {
         if err := json.Unmarshal([]byte(output), &response); err != nil {
             log.Println("response payload is not a json format")
@@ -130,7 +133,7 @@ func (self *FieldbusClient) Invoke(action string, protocol string) (int, interfa
         }
     } else {
         log.Printf("output: %v\n", output)
-        response = micore.H{"message": output}
+        response = micore.RespErr(output)
     }
     return status, response
 }
@@ -208,8 +211,17 @@ func (self *FieldbusClient) DeviceRemove(protocol string, data []byte) (int, int
     return self.Invoke(action, protocol)
 }
 
-func (self *FieldbusClient) MultiDeviceRemove(protocol string, data []byte) (int, interface{}) {
-    self.WritePayload(data)
+func (self *FieldbusClient) MultiDeviceRemove(protocol string, query string) (int, interface{}) {
+    ids := strings.Split(query, ",")
+    data := make([]string, len(ids))
+    for i := 0; i < len(ids); i++ {
+        data[i] = ids[i]
+    }
+    payload, err := json.Marshal(&data)
+    if err != nil {
+        return http.StatusBadRequest, err.Error()
+    }
+    self.WritePayload(payload)
     action := fmt.Sprintf(" -p %v --device_remove=%v", protocol, self.payloadPath)
     return self.Invoke(action, protocol)
 }
@@ -227,7 +239,7 @@ func (self *FieldbusClient) DeviceList(protocol string) (int, interface{}) {
     deviceList := self.deviceMgmt.GetAll()
     var response map[string][]interface{}
     if err := json.Unmarshal(deviceList, &response); err != nil {
-        return http.StatusBadRequest, micore.H{"message": "Load device list failed"}
+        return http.StatusBadRequest, micore.RespErr("Load device list failed")
     }
     list := make([]interface{}, 0)
     for key, value := range response {
@@ -235,7 +247,7 @@ func (self *FieldbusClient) DeviceList(protocol string) (int, interface{}) {
             list = append(list, value...)
         }
     }
-    return http.StatusOK, micore.H{"deviceList": list}
+    return http.StatusOK, micore.RespBody("deviceList", list)
 }
 
 func (self *FieldbusClient) TagStatus(protocol string) (int , interface{}) {
@@ -247,14 +259,14 @@ func (self *FieldbusClient) TagList() (int, interface{}) {
     tagList := self.GetAll()
     var response map[string][]interface{}
     if err := json.Unmarshal(tagList, &response); err != nil {
-        return http.StatusBadRequest, micore.H{"message": "Load tag list failed"}
+        return http.StatusBadRequest, micore.RespErr("Load tag list failed")
     }
 
     list := make([]interface{}, 0)
     for _, value := range response {
         list = append(list, value...)
     }
-    return http.StatusOK, micore.H{"tagList": list}
+    return http.StatusOK, micore.RespBody("tagList", list)
 }
 
 func (self *FieldbusClient) SetProtocolConfig(data []byte) (int, interface{}) {
@@ -271,11 +283,11 @@ func (self *FieldbusClient) SetProtocolConfig(data []byte) (int, interface{}) {
 
     var config FieldbusConfig
     if err := json.Unmarshal(self.protocolMgmt.GetAll(), &config); err != nil {
-        return http.StatusBadRequest, micore.H{"message": "failed to get protocol config"}
+        return http.StatusBadRequest, micore.RespErr("failed to get protocol config")
     }
 
     if _, ok := ContainOf(protocolName, config.PROTOCOLLIST); !ok {
-        return http.StatusBadRequest, micore.H{"message": "protocol has been added"}
+        return http.StatusBadRequest, micore.RespErr("protocol has been added")
     }
 
     config.PROTOCOLLIST = append(config.PROTOCOLLIST, protocolName)

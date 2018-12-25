@@ -7,8 +7,6 @@ import (
     "path/filepath"
 )
 
-type H map[string]interface{}
-
 type Config struct {
     path string
     data []byte
@@ -28,19 +26,19 @@ func (self *Config)Load(path string) []byte {
     if ok := isExist(self.path); !ok {
         if err := os.MkdirAll(filepath.Dir(self.path), os.ModePerm); err != nil {
             os.RemoveAll(filepath.Dir(self.path))
-            log.Fatalf("failed to create file path: %s", err)
+            log.Printf("failed to create file path: %s", err)
             return self.data
 	}
 
 	file, err := os.Create(path)
         if err != nil {
-            log.Fatalf("failed creating file: %s", err)
+            log.Printf("failed creating file: %s", err)
         }
         defer file.Close()
 
         len, err := file.Write([]byte("{}"))
         if err != nil && len > 0 {
-            log.Fatalf("failed writing to file: %s", err)
+            log.Printf("failed writing to file: %s", err)
         } else {
             self.data = []byte("{}")
         }
@@ -58,19 +56,19 @@ func (self *Config)LoadWithDefault(path string, pattern []byte) []byte {
     if ok := isExist(self.path); !ok && pattern != nil {
         if err := os.MkdirAll(filepath.Dir(self.path), os.ModePerm); err != nil {
             os.RemoveAll(filepath.Dir(self.path))
-            log.Fatalf("failed to create file path: %s", err)
+            log.Sprintf("failed to create file path: %s", err)
             return self.data
 	}
 
 	file, err := os.Create(path)
         if err != nil {
-            log.Fatalf("failed creating file: %s", err)
+            log.Sprintf("failed creating file: %s", err)
         }
         defer file.Close()
 
         len, err := file.Write(pattern)
         if err != nil && len > 0 {
-            log.Fatalf("failed writing to file: %s", err)
+            log.Sprintf("failed writing to file: %s", err)
         } else {
             self.data = pattern
         }

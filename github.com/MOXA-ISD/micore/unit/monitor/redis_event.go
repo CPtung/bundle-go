@@ -32,9 +32,9 @@ type RdsMgmt struct {
 func NewRdsMgmt() *RdsMgmt {
     m := RdsMgmt{}
     m.c = redis.NewClient(&redis.Options{
-                                Addr: REDIS_HOST,
-                                PoolSize: 2,
-                                PoolTimeout: 30 * time.Second,})
+                        Addr: REDIS_HOST,
+                        PoolSize: 2,
+                        PoolTimeout: 30 * time.Second,})
     if _, err := m.c.Ping().Result(); err != nil {
         log.Printf("PingPong redis server error(%v)\n", err)
         defer m.c.Close()
@@ -62,7 +62,6 @@ func (self *RdsMgmt) SubRun(hook EventHook) {
                 re, _ := regexp.Compile("__keyspace@[0-9]__:" + MONITOR_KEY + ":(.*:.*)")
                 key := re.ReplaceAllString(msg.Channel, "$1")
                 event := msg.Payload
-                log.Printf("%v:%v\n", key, event)
                 hook(key, event)
             }
         }

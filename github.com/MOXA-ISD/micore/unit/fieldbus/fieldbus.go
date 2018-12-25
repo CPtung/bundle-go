@@ -59,16 +59,12 @@ func (self *Fieldbus)EditDevice(request micore.RequestData) (int, interface{}) {
     return status, output
 }
 
-func (self *Fieldbus)DeleteDevice(request micore.RequestData) (int, interface{}) {
-    status, output := self.client.DeviceRemove(request.Param["type"], request.Body)
-    if status == http.StatusOK {
-        self.client.UpdateTagList(request.Param["type"])
+func (self *Fieldbus)DeleteDevices(request micore.RequestData) (int, interface{}) {
+    ids, ok := request.Query["ids"]
+    if !ok {
+        return http.StatusBadRequest, micore.RespErr("Device Id not found")
     }
-    return status, output
-}
-
-func (self *Fieldbus)DeleteMultiDevices(request micore.RequestData) (int, interface{}) {
-    status, output := self.client.MultiDeviceRemove(request.Param["type"], request.Body)
+    status, output := self.client.MultiDeviceRemove(request.Param["type"], ids[0])
     if status == http.StatusOK {
         self.client.UpdateTagList(request.Param["type"])
     }
@@ -126,9 +122,8 @@ func (self *Fieldbus) Index() {
 
     self.SetEndpointHandler(micore.CRUD_POST,"tags/fieldbus/:type/device", self.AddDevice)
     self.SetEndpointHandler(micore.CRUD_PUT, "tags/fieldbus/:type/device", self.EditDevice)
-    self.SetEndpointHandler(micore.CRUD_DEL, "tags/fieldbus/:type/device", self.DeleteDevice)
     self.SetEndpointHandler(micore.CRUD_GET, "tags/fieldbus/:type/devices", self.GetDevices)
-    self.SetEndpointHandler(micore.CRUD_DEL, "tags/fieldbus/:type/devices", self.DeleteMultiDevices)
+    self.SetEndpointHandler(micore.CRUD_DEL, "tags/fieldbus/:type/devices", self.DeleteDevices)
 
     self.SetEndpointHandler(micore.CRUD_POST,"tags/fieldbus/:type/event", self.PostProtocolEvent)
     self.SetEndpointHandler(micore.CRUD_GET, "tags/fieldbusProtocols", self.GetProtocols)

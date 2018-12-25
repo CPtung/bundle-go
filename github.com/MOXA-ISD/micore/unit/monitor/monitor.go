@@ -12,13 +12,13 @@ import (
 )
 
 type Tag struct {
-    source  string  `json:"srcName"`
-    tag     string  `json:"tagName"`
+    Source  string  `json:"srcName"`
+    Tag     string  `json:"tagName"`
 }
 
 type MonitorRequest struct {
-    id      string  `json:"id"`
-    list    []Tag   `json:"list"`
+    Id      string  `json:"id"`
+    List    []Tag   `json:"list"`
 }
 
 type Stat struct {
@@ -40,20 +40,21 @@ func GetMs(strMs []string) int64 {
 }
 
 func (self *Monitor)PostMonitorEnable(request micore.RequestData) (int, interface{}) {
+    if self.hub == nil {
+        if self.hub = taghub.NewContext(); self.hub == nil {
+            return http.StatusInternalServerError, micore.RespErr("Taghub server not ready.")
+        }
+    }
     var r MonitorRequest
     if err := json.Unmarshal(request.Body, &r); err != nil {
         return http.StatusBadRequest, err.Error()
     }
-    if self.hub == nil {
-        if self.hub = taghub.NewContext(); self.hub == nil {
-            return http.StatusInternalServerError, "Taghub server not ready."
+    for _, t := range r.List {
+        if err := GetMonitorDB().Add(r.Id, fmt.Sprintf("%v:%v", t.Source, t.Tag), MAX_TTL_TIME); err != nil {
+            return http.StatusBadRequest, micore.RespErr(err.Error())
         }
-    }
-    for _, t := range r.list {
-        if rc := self.hub.EnableMonitor(t.source, t.tag); rc != 0 {
-            return http.StatusBadRequest, fmt.Sprintf("Enable monitor (%v, %v) failed", t.source, t.tag)
-        } else {
-            GetMonitorDB().Add(fmt.Sprintf("%v:%v", t.source, t.tag), 0)
+        if rc := self.hub.EnableMonitor(t.Source, t.Tag); rc != 0 {
+            return http.StatusBadRequest, fmt.Sprintf("Enable monitor (%v, %v) failed", t.Source, t.Tag)
         }
     }
     return http.StatusOK, nil
@@ -62,18 +63,23 @@ func (self *Monitor)PostMonitorEnable(request micore.RequestData) (int, interfac
 func (self *Monitor)PostMonitorDisable(request micore.RequestData) (int, interface{}) {
     var r MonitorRequest
     if err := json.Unmarshal(request.Body, &r); err != nil {
-        return http.StatusBadRequest, err.Error()
+        return http.StatusBadRequest, micore.RespErr(err.Error())
     }
     if self.hub == nil {
         if self.hub = taghub.NewContext(); self.hub == nil {
-            return http.StatusInternalServerError, `"message":"Taghub server not ready."`
+            return http.StatusInternalServerError, micore.RespErr("Taghub server not ready.")
         }
     }
-    for _, t := range r.list {
-        if rc := self.hub.DisableMonitor(t.source, t.tag); rc == 0 {
-            return http.StatusBadRequest, fmt.Sprintf("Disable monitor (%v, %v) failed", t.source, t.tag)
+    for _, t := range r.List {
+        if err := GetMonitorDB().Del(r.Id, fmt.Sprintf("%v:%v", t.Source, t.Tag)); err != nil {
+            return http.StatusBadRequest, micore.RespErr(err.Error())
+        }
+        if num := GetMonitorDB().NumOf(fmt.Sprintf("%v:%v", t.Source, t.Tag)); num > 0 {
+            continue
+        } else if rc := self.hub.DisableMonitor(t.Source, t.Tag); rc != 0 {
+            return http.StatusBadRequest, fmt.Sprintf("Disable monitor (%v, %v) failed", t.Source, t.Tag)
         } else {
-            GetMonitorDB().Del(fmt.Sprintf("%v:%v", t.source, t.tag))
+            log.Printf("disable tag....\n")
         }
     }
     return http.StatusOK, nil
@@ -82,12 +88,12 @@ func (self *Monitor)PostMonitorDisable(request micore.RequestData) (int, interfa
 func (self *Monitor)GetMonitorStats(request micore.RequestData) (int, interface{}) {
     if self.hub == nil {
         if self.hub = taghub.NewContext(); self.hub == nil {
-            return http.StatusInternalServerError, `"message":"Taghub server not ready."`
+            return http.StatusInternalServerError, micore.RespErr("Taghub server not ready.")
         }
     }
 
     if !self.hub.IsReady() {
-        return http.StatusBadRequest, `"message":"Taghub server not ready."`
+        return http.StatusBadRequest, micore.RespErr("Taghub server not ready.")
     }
 
     var buffer []Stat
@@ -101,21 +107,21 @@ func (self *Monitor)GetMonitorStats(request micore.RequestData) (int, interface{
         result := self.hub.ReadBySource(sourceName)
         if result != "" {
             if err := json.Unmarshal([]byte(result), &buffer); err != nil {
-                return http.StatusBadRequest, err.Error()
+                return http.StatusBadRequest, micore.RespErr(err.Error())
             }
             return http.StatusOK, buffer
         }
     // if a valid searching time period is given(1 ~ 86400000 ms), doing the time searching for each tag
     } else if (searchMs > 0) {
         if (searchMs > 86400000) {
-             return http.StatusBadRequest, "Time-Query only supports the range from 1 to 86400000 ms"
+             return http.StatusBadRequest, micore.RespErr("Time-Query only supports the range from 1 to 86400000 ms")
         }
         for _, tag := range request.Query["tag"] {
             result := self.hub.ReadByPeriod(sourceName, tag, searchMs)
             if result != "" {
                 var States []Stat
                 if err := json.Unmarshal([]byte(result), &States); err != nil {
-                    log.Println("Parse Stat Json error: ", err)
+                    log.Println("Parse MonitStat JSON error: ", err)
                     continue
                 }
                 buffer = append(buffer, States...)
@@ -129,7 +135,7 @@ func (self *Monitor)GetMonitorStats(request micore.RequestData) (int, interface{
             if result != "" {
                 var state Stat
                 if err := json.Unmarshal([]byte(result), &state); err != nil {
-                    log.Println("Parse Stat Json error: ", err)
+                    log.Println("Parse MonitStat JSON error: ", err)
                     continue
                 }
                 buffer = append(buffer, state)
@@ -137,7 +143,7 @@ func (self *Monitor)GetMonitorStats(request micore.RequestData) (int, interface{
         }
         return http.StatusOK, buffer
     }
-    return http.StatusBadRequest, "No command has been handled."
+    return http.StatusBadRequest, micore.RespErr("No command has been handled.")
 }
 
 type Monitor struct {
@@ -156,7 +162,7 @@ func (self *Monitor) Index() {
 
     // setup the mapping from route to result handler
     self.GenEndpointHandler()
-    self.SetEndpointHandler(micore.CRUD_POST, "tags/stats/:source", self.GetMonitorStats)
+    self.SetEndpointHandler(micore.CRUD_GET, "tags/monitor/:source", self.GetMonitorStats)
     self.SetEndpointHandler(micore.CRUD_POST, "tags/monitor/enable",  self.PostMonitorEnable)
     self.SetEndpointHandler(micore.CRUD_POST, "tags/monitor/disable", self.PostMonitorDisable)
 }

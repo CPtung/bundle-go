@@ -1,11 +1,20 @@
 package monitor
 
 import (
-    "log"
+    "fmt"
     "sync"
+    "errors"
+
+    "github.com/MOXA-ISD/micore/pkg"
 )
 
-type TABLE  map[string]int
+const (
+    MAX_TTL_TIME    = 65536
+    STR_LAST_UPDATE = "last_update_ts"
+)
+
+type TTL    map[string]interface{}
+type TABLE  map[string]TTL          // map[Key]TTL
 
 type Operation interface {
     NumOf(string) int
@@ -37,27 +46,56 @@ func (self *MonitorDB)NumOf(key string) int {
     if _, ok := self.table[key]; !ok {
         return 0
     }
-    return 1
+    if _, ok := self.table[key][STR_LAST_UPDATE]; ok {
+        return len(self.table[key]) - 1
+    }
+    return len(self.table[key])
 }
 
-func (self *MonitorDB)Add(key string, ttl int) int {
+func (self *MonitorDB)Add(id string, key string, timeout int) error {
     self.mtx.Lock()
     defer self.mtx.Unlock()
     if _, ok := self.table[key]; !ok {
+        ttl := make(TTL)
+        ttl[id] = timeout
         self.table[key] = ttl
-    } else if (self.table[key] & ttl) != 0 {
-        self.table[key] = 0
+    } else {
+        // Save New User Setting
+        if _, ok := self.table[key][id]; !ok {
+            self.table[key][id] = timeout
+            return nil
+        }
+        // Check if incoming timeout time is longer than ever
+        var new_val int = timeout
+        for key, val := range self.table[key] {
+            if key != STR_LAST_UPDATE && new_val < val.(int) {
+                new_val = val.(int)
+            }
+        }
+        self.table[key][id] = new_val
     }
-    return 0;
+    self.table[key][STR_LAST_UPDATE] = micore.GetTimeStamp()
+    return nil
 }
 
-func (self *MonitorDB)Del(key string) int {
+func (self *MonitorDB)Del(id string, key string) error {
     self.mtx.Lock()
     defer self.mtx.Unlock()
-    if _, ok := self.table[key]; !ok {
-        log.Printf("Cannot remove monitor(%v) becase key not exists\n", key)
-        return -1
+    if id == "__super__" {
+        delete(self.table, key)
+        return nil
+    } else if _, ok := self.table[key]; !ok {
+        err := fmt.Sprintf("Cannot remove monitor because Key(%v) not exists", key)
+        return errors.New(err)
+    } else if _, ok := self.table[key][id]; !ok {
+        err := fmt.Sprintf("Cannot remove monitor because UserId(%v) not exists", id)
+        return errors.New(err)
     }
-    delete(self.table, key)
-    return 0
+    delete(self.table[key], id)
+    self.table[key][STR_LAST_UPDATE] = micore.GetTimeStamp()
+
+    if len(self.table[key]) == 0 {
+        delete(self.table, key)
+    }
+    return nil
 }

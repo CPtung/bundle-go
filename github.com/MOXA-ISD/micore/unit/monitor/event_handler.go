@@ -11,11 +11,9 @@ type EventHandler struct {
 func (self *EventHandler) UpdateDB(key string, event string) {
     switch event {
         case "set":
-            GetMonitorDB().Add(key, 0)
-        case "del":
-            GetMonitorDB().Del(key)
+            log.Printf("key %v set\n", key)
         case "expired":
-            GetMonitorDB().Del(key)
+            GetMonitorDB().Del("__super__", key)
     }
 }
 

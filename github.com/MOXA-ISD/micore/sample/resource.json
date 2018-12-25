@@ -1,0 +1,8 @@
+{
+  "redishost": "redis",
+  "redisport": "6379",
+  "resources": [
+    "system:cpu_usage",
+    "system:mem_usage"
+  ]
+}
